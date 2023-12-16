@@ -1,16 +1,63 @@
+"use server";
+
 import * as cheerio from "cheerio";
 import OpenAI from "openai";
 import {
   ChatCompletionMessageParam,
   ChatCompletionTool,
 } from "openai/resources";
+import { z } from "zod";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export async function GET() {
-  const url = "https://react.dev/reference/react/useLayoutEffect";
+function isValidUrl(input: string) {
+  try {
+    const url = new URL(input);
+    return url.protocol === "https:"; // Only allow https URLs
+  } catch (_) {
+    return false;
+  }
+}
+
+const schema = z.object({
+  quizzes: z.array(
+    z.object({
+      question: z.string(),
+      options: z.array(
+        z.object({
+          index: z.number(),
+          text: z.string(),
+        })
+      ),
+      answerIndex: z.number(),
+      explanation: z.string(),
+    })
+  ),
+});
+
+type Data = z.infer<typeof schema>;
+export type Quiz = Data["quizzes"][number];
+
+export type CreateQuizzesResult =
+  | {
+      success: false;
+      data?: never;
+    }
+  | {
+      success: true;
+      data: z.infer<typeof schema>;
+    };
+
+export async function submitUrl(
+  previousState: CreateQuizzesResult,
+  formData: FormData
+): Promise<CreateQuizzesResult> {
+  const url = formData.get("url") as string;
+  if (url === undefined || !isValidUrl(url)) {
+    return { success: false };
+  }
 
   // Step 1: Generate text from the given URL
   const res = await fetch(url);
@@ -28,11 +75,11 @@ export async function GET() {
     {
       role: "system",
       content:
-        "You are a helpful assistant to generate quizzes in JSON format. Summarize the text presented by the user and make five four-choice quizzes based on it. Please provide an explanation of the correct answer as a supplement to each quiz.",
+        "You are a helpful assistant to generate quizzes in JSON format. Summarize the text presented by the user and make five 4-option quizzes based on it. Please provide an explanation of the correct answer as a supplement to each quiz.",
     },
     {
       role: "user",
-      content: `Please make five four-choice quizzes from the following text:
+      content: `Please make five 4-option quizzes from the following text:
 """
 ${textContent}
 """
@@ -44,7 +91,7 @@ ${textContent}
       type: "function",
       function: {
         name: "generate_five_quizzes",
-        description: "Generate five 4-choice quizzes from the given text",
+        description: "Generate five 4-option quizzes from the given text",
         parameters: {
           type: "object",
           properties: {
@@ -57,8 +104,9 @@ ${textContent}
                 properties: {
                   question: {
                     type: "string",
+                    description: "The question text of the quiz",
                   },
-                  choices: {
+                  options: {
                     type: "array",
                     minItems: 4,
                     maxItems: 4,
@@ -101,14 +149,30 @@ ${textContent}
     tool_choice: "auto",
   });
   const responseMessage = response.choices[0].message;
-  console.log(JSON.stringify(responseMessage, null, 2));
 
   // Step 3: Generate quizzes
   const toolCalls = responseMessage.tool_calls;
   if (toolCalls === undefined || toolCalls.length === 0) {
-    return Response.json({ result: "No tool calls" });
+    return { success: false };
   }
-  const result = JSON.parse(toolCalls[0].function.arguments);
 
-  return Response.json({ result });
+  // JSON.parse may throw an error
+  try {
+    const result = schema.safeParse(
+      JSON.parse(toolCalls[0].function.arguments)
+    );
+    if (!result.success) {
+      console.log(result.error);
+      return { success: false };
+    }
+
+    // TODO: insert the quiz set into the database
+    return {
+      success: true,
+      data: result.data,
+    };
+  } catch (e) {
+    console.log(e);
+    return { success: false };
+  }
 }
