@@ -62,20 +62,11 @@ export async function submitUrl(
   const cookieStore = cookies();
   const supabase = createClient(cookieStore);
 
-  // If user is not logged in, return false
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (session === null) {
-    return { success: false };
-  }
-
-  // 💸 Limit the number of quizzes each user can make to 5 to avoid bankrupting me
+  // 💸 Limit the number of quizzes to 500 to avoid bankrupting
   const { count } = await supabase
     .from("quiz_set")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", session.user.id);
-  if (count && count >= 5) {
+    .select("*", { count: "exact", head: true });
+  if (count && count >= 500) {
     return { success: false };
   }
 
@@ -201,7 +192,6 @@ ${textContent}
 
     await supabase.from("quiz_set").insert({
       id: quizSetId,
-      user_id: session.user.id,
       title: pageTitle,
       url,
     });

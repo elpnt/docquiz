@@ -7,7 +7,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
 import type { CreateQuizzesResult } from "@/utils/actions";
-import { Quiz, QuizSet } from "./quiz";
+import { Loader2Icon } from "lucide-react";
 
 export default function UrlForm() {
   const [result, formAction] = useFormState<CreateQuizzesResult, FormData>(
@@ -16,19 +16,16 @@ export default function UrlForm() {
   );
 
   return (
-    <>
-      <form action={formAction} className="flex w-full items-center gap-x-2">
-        <UrlInput />
-        <SubmitButton />
-      </form>
-      {result.success ? <QuizSet quizzes={result.data.quizzes} /> : null}
-      {/* TODO show skeleton while pending */}
-    </>
+    <form action={formAction} className="flex w-full items-center gap-x-2">
+      <UrlInput />
+      <SubmitButton />
+    </form>
   );
 }
 
 function UrlInput() {
-  const { pending } = useFormStatus();
+  const { pending, data } = useFormStatus();
+  console.log(data);
 
   return (
     <Input
@@ -45,7 +42,14 @@ function SubmitButton() {
 
   return (
     <Button type="submit" disabled={pending}>
-      {pending ? "Generating..." : "Generate"}
+      {pending ? (
+        <>
+          <Loader2Icon className="h-5 w-5 mr-1.5 animate-spin" />
+          Generating
+        </>
+      ) : (
+        "Generate"
+      )}
     </Button>
   );
 }

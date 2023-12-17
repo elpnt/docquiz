@@ -30,11 +30,6 @@ export const createClient = (request: NextRequest) => {
               headers: request.headers,
             },
           });
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
         },
         remove(name: string, options: CookieOptions) {
           // If the cookie is removed, update the cookies for the request and response
@@ -47,11 +42,6 @@ export const createClient = (request: NextRequest) => {
             request: {
               headers: request.headers,
             },
-          });
-          response.cookies.set({
-            name,
-            value: "",
-            ...options,
           });
         },
       },

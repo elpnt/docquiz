@@ -8,7 +8,6 @@ export default function Header() {
       <p className="text-2xl !leading-tight mx-auto max-w-xl text-center">
         Generate quizzes from web documents!
       </p>
-      {/* <div className="w-full p-[1px] bg-gradient-to-r from-transparent via-foreground/10 to-transparent my-8" /> */}
     </div>
   );
 }
