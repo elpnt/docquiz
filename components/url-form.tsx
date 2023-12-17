@@ -3,6 +3,8 @@ import { newId } from "@/utils/id";
 import { getUrl } from "@/utils/url";
 import { redirect } from "next/navigation";
 
+export const runtime = "edge";
+
 export default function UrlForm() {
   const post = async (formData: FormData) => {
     "use server";
