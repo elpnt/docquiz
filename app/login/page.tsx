@@ -15,7 +15,7 @@ export default async function Login() {
   }
 
   return (
-    <div className="max-w-sm mx-auto w-full grid place-items-center h-full">
+    <div className="max-w-sm mx-auto w-full pt-48">
       <LoginWithGitHub />
     </div>
   );
