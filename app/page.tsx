@@ -1,4 +1,4 @@
-import Header from "@/components/header";
+import Header from "@/components/header-section";
 import UrlForm from "@/components/url-form";
 import { createClient } from "@/utils/supabase/server";
 import { ChevronRightIcon } from "lucide-react";
