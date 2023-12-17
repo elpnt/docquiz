@@ -47,10 +47,16 @@ export default function UrlForm() {
   }
 
   return (
-    <form action={formAction} className="flex w-full items-center gap-x-2">
-      <UrlInput />
-      <SubmitButton />
-    </form>
+    <div className="space-y-8">
+      <form action={formAction} className="flex w-full items-center gap-x-2">
+        <UrlInput />
+        <SubmitButton />
+      </form>
+      <p className="text-center text-neutral-600">
+        Quizzes you create are public and can be accessed by anyone in the
+        world.
+      </p>
+    </div>
   );
 }
 

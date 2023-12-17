@@ -6,6 +6,19 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { format } from "date-fns";
 
+export default async function Index() {
+  return (
+    <>
+      <Header />
+      <main className="flex-1 flex flex-col gap-16 mt-20">
+        <UrlForm />
+        <Divider />
+        <RecentQuizSets />
+      </main>
+    </>
+  );
+}
+
 const Divider = () => (
   <div className="relative">
     <div className="absolute inset-0 flex items-center" aria-hidden="true">
@@ -65,16 +78,3 @@ const RecentQuizSets = async () => {
     </ul>
   );
 };
-
-export default async function Index() {
-  return (
-    <>
-      <Header />
-      <main className="flex-1 flex flex-col gap-16 mt-20">
-        <UrlForm />
-        <Divider />
-        <RecentQuizSets />
-      </main>
-    </>
-  );
-}
