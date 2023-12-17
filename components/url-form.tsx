@@ -13,12 +13,12 @@ export default function UrlForm() {
     const quizSetId = newId("quizSet");
     console.log({ url, quizSetId });
 
-    const res = await fetch(`${getUrl()}/qs/api`, {
+    fetch(`${getUrl()}/qs/api`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url, quizSetId }),
     });
-    if (res.ok) redirect(`/qs/${quizSetId}`);
+    // if (res.ok) redirect(`/qs/${quizSetId}`);
   };
 
   return (
