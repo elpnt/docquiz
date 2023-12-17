@@ -1,7 +1,4 @@
-"use server";
-
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import * as cheerio from "cheerio";
 import OpenAI from "openai";
 import {
@@ -9,9 +6,10 @@ import {
   ChatCompletionTool,
 } from "openai/resources";
 import { z } from "zod";
+import { newId } from "@/utils/id";
+import { createClient } from "@/utils/supabase/server";
 
-import { createClient } from "./supabase/server";
-import { newId } from "./id";
+export const runtime = "edge";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -54,39 +52,18 @@ const schema = z.object({
 type Data = z.infer<typeof schema>;
 export type Quiz = Data["quizzes"][number];
 
-type Err =
-  | "exceedsLimit"
-  | "invalidUrl"
-  | "unsecuredUrl"
-  | "urlFetchError"
-  | "openaiError";
+export async function POST(req: Request) {
+  const { url, quizSetId } = await req.json();
+  console.log("received", url, quizSetId);
 
-export type CreateQuizzesResult =
-  // initial state
-  | {
-      success: null;
-      error: null;
-    }
-  | {
-      success: false;
-      error: Err;
-    }
-  | {
-      success: true;
-      data: z.infer<typeof schema>;
-    };
-
-export async function submitUrl(
-  previousState: CreateQuizzesResult,
-  formData: FormData
-): Promise<CreateQuizzesResult> {
-  // URL validation
-  const url = formData.get("url") as string;
   if (url === undefined || !isValidUrl(url)) {
-    return { success: false, error: "invalidUrl" };
+    return new Response("Invalid URL", { status: 400 });
   }
   if (!isSecuredUrl(url)) {
-    return { success: false, error: "unsecuredUrl" };
+    return new Response("Unsecured URL", { status: 400 });
+  }
+  if (quizSetId === undefined) {
+    return new Response("Invalid quizSetId", { status: 400 });
   }
 
   const cookieStore = cookies();
@@ -101,15 +78,8 @@ export async function submitUrl(
   }
 
   // Step 1: Generate text from the given URL
-  let html: string = "";
-  try {
-    const res = await fetch(url);
-    html = await res.text();
-  } catch (e) {
-    console.log(e);
-    return { success: false, error: "urlFetchError" };
-  }
-
+  const res = await fetch(url);
+  const html = await res.text();
   const $ = cheerio.load(html);
 
   let textContent = "";
@@ -117,6 +87,8 @@ export async function submitUrl(
     textContent += $(el).text();
     textContent += "\n";
   });
+
+  console.log("Loaded html", url);
 
   const pageTitle = $("head title").text();
 
@@ -194,23 +166,22 @@ ${textContent}
     },
   ];
 
-  const quizSetId = newId("quizSet");
-
   try {
     // Generating OpenAI completion may throw an error
     const response = await openai.chat.completions.create({
-      model: "gpt-4-1106-preview",
+      model: "gpt-3.5-turbo-1106",
       messages,
       tools,
       tool_choice: "auto",
     });
+    console.log("OpenAI response", response);
 
     const responseMessage = response.choices[0].message;
 
     // Step 3: Generate quizzes
     const toolCalls = responseMessage.tool_calls;
     if (toolCalls === undefined || toolCalls.length === 0) {
-      return { success: false, error: "openaiError" };
+      return new Response("Internal server error", { status: 500 });
     }
 
     // JSON.parse may also throw an error
@@ -218,9 +189,10 @@ ${textContent}
       JSON.parse(toolCalls[0].function.arguments)
     );
     if (!result.success) {
-      console.log(result.error);
-      return { success: false, error: "openaiError" };
+      return new Response("Internal server error", { status: 500 });
     }
+
+    console.log("Finished parsing result");
 
     await supabase.from("quiz_set").insert({
       id: quizSetId,
@@ -247,9 +219,8 @@ ${textContent}
     }
   } catch (e) {
     console.log(e);
-    return { success: false, error: "openaiError" };
+    return new Response("Internal server error", { status: 500 });
   }
 
-  // Must be called outside of try-catch
-  redirect(`/qs/${quizSetId}`);
+  return new Response("OK");
 }

@@ -1,54 +1,27 @@
-"use client";
-
-import { useFormState, useFormStatus } from "react-dom";
-
-import { submitUrl } from "@/utils/actions";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-
-import type { CreateQuizzesResult } from "@/utils/actions";
-import { Loader2Icon } from "lucide-react";
-import { toast } from "sonner";
+import { SubmitButton, UrlInput } from "./url-form-parts";
+import { newId } from "@/utils/id";
+import { getUrl } from "@/utils/url";
+import { redirect } from "next/navigation";
 
 export default function UrlForm() {
-  const [result, formAction] = useFormState<CreateQuizzesResult, FormData>(
-    submitUrl,
-    { success: null, error: null }
-  );
+  const post = async (formData: FormData) => {
+    "use server";
 
-  if (result.success === false) {
-    switch (result.error) {
-      case "invalidUrl":
-        toast.error("Invalid URL");
-        break;
-      case "unsecuredUrl":
-        toast.error("Unsecured URL", {
-          description: "URL must be secured with HTTPS",
-        });
-        break;
-      case "exceedsLimit":
-        toast.error("Exceeds limit", {
-          description:
-            "You have reached the maximum number of quiz generations",
-        });
-        break;
-      case "urlFetchError":
-      case "openaiError":
-        toast.error("Something went wrong", {
-          description: "Please try again later",
-        });
-        break;
-      default:
-        toast.error("Something went wrong", {
-          description: "Please try again later",
-        });
-        break;
-    }
-  }
+    const url = formData.get("url") as string;
+    const quizSetId = newId("quizSet");
+    console.log({ url, quizSetId });
+
+    const res = await fetch(`${getUrl()}/qs/api`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, quizSetId }),
+    });
+    if (res.ok) redirect(`/qs/${quizSetId}`);
+  };
 
   return (
     <div className="space-y-8">
-      <form action={formAction} className="flex w-full items-center gap-x-2">
+      <form action={post} className="flex w-full items-center gap-x-2">
         <UrlInput />
         <SubmitButton />
       </form>
@@ -57,35 +30,5 @@ export default function UrlForm() {
         world.
       </p>
     </div>
-  );
-}
-
-function UrlInput() {
-  const { pending } = useFormStatus();
-
-  return (
-    <Input
-      type="text"
-      name="url"
-      placeholder="Enter document URL here..."
-      disabled={pending}
-    />
-  );
-}
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-
-  return (
-    <Button type="submit" disabled={pending}>
-      {pending ? (
-        <>
-          <Loader2Icon className="h-5 w-5 mr-1.5 animate-spin" />
-          Generating
-        </>
-      ) : (
-        "Generate"
-      )}
-    </Button>
   );
 }
