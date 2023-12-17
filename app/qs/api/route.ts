@@ -74,7 +74,7 @@ export async function POST(req: Request) {
     .from("quiz_set")
     .select("*", { count: "exact", head: true });
   if (count && count >= 500) {
-    return { success: false, error: "exceedsLimit" };
+    return new Response("Too many quizzes", { status: 400 });
   }
 
   // Step 1: Generate text from the given URL
@@ -199,6 +199,7 @@ ${textContent}
       title: pageTitle,
       url,
     });
+    // TODO: Use bulk insert
     for (const quiz of result.data.quizzes) {
       const quizId = newId("quiz");
       await supabase.from("quiz").insert({
