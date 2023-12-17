@@ -1,7 +1,7 @@
 import Header from "@/components/header";
 import UrlForm from "@/components/url-form";
 import { createClient } from "@/utils/supabase/server";
-import { ChevronRightIcon, LinkIcon } from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { format } from "date-fns";
