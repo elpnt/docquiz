@@ -5,7 +5,7 @@ import { useFormState } from "react-dom";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import { Check, Frown, Smile, X } from "lucide-react";
 
-import type { Quiz as TQuiz } from "@/utils/actions";
+import type { Quiz as TQuiz } from "@/app/qs/api/route";
 import { cn } from "@/utils/cn";
 import { Button } from "./ui/button";
 
