@@ -20,7 +20,16 @@ const openai = new OpenAI({
 function isValidUrl(input: string) {
   try {
     const url = new URL(input);
-    return url.protocol === "https:"; // Only allow https URLs
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function isSecuredUrl(input: string) {
+  try {
+    const url = new URL(input);
+    return url.protocol === "https:";
   } catch (_) {
     return false;
   }
@@ -45,10 +54,22 @@ const schema = z.object({
 type Data = z.infer<typeof schema>;
 export type Quiz = Data["quizzes"][number];
 
+type Err =
+  | "exceedsLimit"
+  | "invalidUrl"
+  | "unsecuredUrl"
+  | "urlFetchError"
+  | "openaiError";
+
 export type CreateQuizzesResult =
+  // initial state
+  | {
+      success: null;
+      error: null;
+    }
   | {
       success: false;
-      data?: never;
+      error: Err;
     }
   | {
       success: true;
@@ -59,6 +80,15 @@ export async function submitUrl(
   previousState: CreateQuizzesResult,
   formData: FormData
 ): Promise<CreateQuizzesResult> {
+  // URL validation
+  const url = formData.get("url") as string;
+  if (url === undefined || !isValidUrl(url)) {
+    return { success: false, error: "invalidUrl" };
+  }
+  if (!isSecuredUrl(url)) {
+    return { success: false, error: "unsecuredUrl" };
+  }
+
   const cookieStore = cookies();
   const supabase = createClient(cookieStore);
 
@@ -67,17 +97,19 @@ export async function submitUrl(
     .from("quiz_set")
     .select("*", { count: "exact", head: true });
   if (count && count >= 500) {
-    return { success: false };
-  }
-
-  const url = formData.get("url") as string;
-  if (url === undefined || !isValidUrl(url)) {
-    return { success: false };
+    return { success: false, error: "exceedsLimit" };
   }
 
   // Step 1: Generate text from the given URL
-  const res = await fetch(url);
-  const html = await res.text();
+  let html: string = "";
+  try {
+    const res = await fetch(url);
+    html = await res.text();
+  } catch (e) {
+    console.log(e);
+    return { success: false, error: "urlFetchError" };
+  }
+
   const $ = cheerio.load(html);
 
   let textContent = "";
@@ -178,7 +210,7 @@ ${textContent}
     // Step 3: Generate quizzes
     const toolCalls = responseMessage.tool_calls;
     if (toolCalls === undefined || toolCalls.length === 0) {
-      return { success: false };
+      return { success: false, error: "openaiError" };
     }
 
     // JSON.parse may also throw an error
@@ -187,7 +219,7 @@ ${textContent}
     );
     if (!result.success) {
       console.log(result.error);
-      return { success: false };
+      return { success: false, error: "openaiError" };
     }
 
     await supabase.from("quiz_set").insert({
@@ -215,7 +247,7 @@ ${textContent}
     }
   } catch (e) {
     console.log(e);
-    return { success: false };
+    return { success: false, error: "openaiError" };
   }
 
   // Must be called outside of try-catch

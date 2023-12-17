@@ -8,12 +8,43 @@ import { Input } from "./ui/input";
 
 import type { CreateQuizzesResult } from "@/utils/actions";
 import { Loader2Icon } from "lucide-react";
+import { toast } from "sonner";
 
 export default function UrlForm() {
   const [result, formAction] = useFormState<CreateQuizzesResult, FormData>(
     submitUrl,
-    {} as any
+    { success: null, error: null }
   );
+
+  if (result.success === false) {
+    switch (result.error) {
+      case "invalidUrl":
+        toast.error("Invalid URL");
+        break;
+      case "unsecuredUrl":
+        toast.error("Unsecured URL", {
+          description: "URL must be secured with HTTPS",
+        });
+        break;
+      case "exceedsLimit":
+        toast.error("Exceeds limit", {
+          description:
+            "You have reached the maximum number of quiz generations",
+        });
+        break;
+      case "urlFetchError":
+      case "openaiError":
+        toast.error("Something went wrong", {
+          description: "Please try again later",
+        });
+        break;
+      default:
+        toast.error("Something went wrong", {
+          description: "Please try again later",
+        });
+        break;
+    }
+  }
 
   return (
     <form action={formAction} className="flex w-full items-center gap-x-2">
@@ -24,8 +55,7 @@ export default function UrlForm() {
 }
 
 function UrlInput() {
-  const { pending, data } = useFormStatus();
-  console.log(data);
+  const { pending } = useFormStatus();
 
   return (
     <Input
