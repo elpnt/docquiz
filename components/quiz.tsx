@@ -88,18 +88,18 @@ const QuizExplanation = ({
             </span>
           </div>
           <p className="mt-2 text-green-700">
-            Answer is <span className="font-bold">{answerIndex}</span>.{" "}
+            Answer is <span className="font-medium">{answerIndex}</span>.{" "}
             {explanation}
           </p>
         </div>
       ) : (
         <div className="bg-red-50 rounded-lg p-4">
-          <div className="flex flex-row text-lg items-center gap-x-1.5 text-red-600">
-            <Frown className="h-6 w-6" strokeWidth={2} />
+          <div className="flex flex-row text-lg items-center gap-x-1.5 text-red-700">
+            <Frown className="h-6 w-6 text-red-600" strokeWidth={2} />
             <span className="font-medium tracking-wide">Incorrect...</span>
           </div>
           <p className="mt-2 text-red-700">
-            Answer is <span className="font-bold">{answerIndex}</span>.{" "}
+            Answer is <span className="font-medium">{answerIndex}</span>.{" "}
             {explanation}
           </p>
         </div>
@@ -114,18 +114,31 @@ export const Quiz = ({
   options,
   answerIndex,
   explanation,
-}: TQuiz & { quizNumber: number }) => {
+  onCorrect,
+  onSubmit,
+}: TQuiz & {
+  quizNumber: number;
+  onSubmit: () => void;
+  onCorrect: () => void;
+}) => {
   const id = useId();
 
   const [submitted, setSubmitted] = useState(false);
   const [userChoiceIndex, formAction] = useFormState(
     (state: any, formData: FormData) => {
       const userChoiceString = formData.get(question) as string;
+      if (parseInt(userChoiceString) === answerIndex) {
+        onCorrect();
+      }
+      onSubmit();
       setSubmitted(true);
       return parseInt(userChoiceString);
     },
     1
   );
+
+  // sort options by index
+  options.sort((a, b) => a.index - b.index);
 
   return (
     <form className="flex flex-col gap-y-4" action={formAction}>
@@ -159,5 +172,31 @@ export const Quiz = ({
         </Button>
       )}
     </form>
+  );
+};
+
+export const QuizSet = ({ quizzes }: { quizzes: TQuiz[] }) => {
+  const [numCorrect, setNumCorrect] = useState(0);
+  const [numSubmitted, setNumSubmitted] = useState(0);
+
+  return (
+    <div>
+      <div className="space-y-48 pb-32">
+        {quizzes.map((quiz, idx) => (
+          <Quiz
+            {...quiz}
+            quizNumber={idx + 1}
+            key={quiz.question}
+            onSubmit={() => setNumSubmitted((n) => n + 1)}
+            onCorrect={() => setNumCorrect((n) => n + 1)}
+          />
+        ))}
+      </div>
+      {numSubmitted === 5 ? (
+        <div className="text-2xl font-bold text-center pb-24">
+          Score: {numCorrect}/5
+        </div>
+      ) : null}
+    </div>
   );
 };

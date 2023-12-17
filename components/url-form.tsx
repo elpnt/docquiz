@@ -2,14 +2,12 @@
 
 import { useFormState, useFormStatus } from "react-dom";
 
-import { Loader2 } from "lucide-react";
-
 import { submitUrl } from "@/utils/actions";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
 import type { CreateQuizzesResult } from "@/utils/actions";
-import { Quiz } from "./quiz";
+import { Quiz, QuizSet } from "./quiz";
 
 export default function UrlForm() {
   const [result, formAction] = useFormState<CreateQuizzesResult, FormData>(
@@ -20,18 +18,25 @@ export default function UrlForm() {
   return (
     <>
       <form action={formAction} className="flex w-full items-center gap-x-2">
-        <Input type="text" name="url" placeholder="Enter URL here..." />
+        <UrlInput />
         <SubmitButton />
       </form>
-      {result.success ? (
-        <div className="space-y-24">
-          {result.data.quizzes.map((quiz, idx) => (
-            <Quiz {...quiz} quizNumber={idx + 1} key={quiz.question} />
-          ))}
-        </div>
-      ) : null}
+      {result.success ? <QuizSet quizzes={result.data.quizzes} /> : null}
       {/* TODO show skeleton while pending */}
     </>
+  );
+}
+
+function UrlInput() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Input
+      type="text"
+      name="url"
+      placeholder="Enter document URL here..."
+      disabled={pending}
+    />
   );
 }
 
@@ -40,7 +45,7 @@ function SubmitButton() {
 
   return (
     <Button type="submit" disabled={pending}>
-      {pending ? <Loader2 className="h-5 w-5 animate-spin" /> : "Generate"}
+      {pending ? "Generating..." : "Generate"}
     </Button>
   );
 }

@@ -1,5 +1,7 @@
 "use server";
 
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import * as cheerio from "cheerio";
 import OpenAI from "openai";
 import {
@@ -7,6 +9,9 @@ import {
   ChatCompletionTool,
 } from "openai/resources";
 import { z } from "zod";
+
+import { createClient } from "./supabase/server";
+import { newId } from "./id";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -54,6 +59,26 @@ export async function submitUrl(
   previousState: CreateQuizzesResult,
   formData: FormData
 ): Promise<CreateQuizzesResult> {
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+
+  // If user is not logged in, return false
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (session === null) {
+    return { success: false };
+  }
+
+  // 💸 Limit the number of quizzes each user can make to 5 to avoid bankrupting me
+  const { count } = await supabase
+    .from("quiz_set")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", session.user.id);
+  if (count && count >= 5) {
+    return { success: false };
+  }
+
   const url = formData.get("url") as string;
   if (url === undefined || !isValidUrl(url)) {
     return { success: false };
@@ -70,12 +95,14 @@ export async function submitUrl(
     textContent += "\n";
   });
 
+  const pageTitle = $("head title").text();
+
   // Step 2: Send the conversation and available functions to the model
   const messages: ChatCompletionMessageParam[] = [
     {
       role: "system",
       content:
-        "You are a helpful assistant to generate quizzes in JSON format. Summarize the text presented by the user and make five 4-option quizzes based on it. Please provide an explanation of the correct answer as a supplement to each quiz.",
+        "You are a helpful assistant to generate quizzes in JSON format. Summarize the text presented by the user and make five 4-option quizzes based on it. Please provide an additional useful explanation of the correct answer for each quiz.",
     },
     {
       role: "user",
@@ -115,7 +142,7 @@ ${textContent}
                       properties: {
                         index: {
                           type: "integer",
-                          description: "The number of the option",
+                          description: "The 1-based index number of the option",
                         },
                         text: {
                           type: "string",
@@ -126,11 +153,13 @@ ${textContent}
                   },
                   answerIndex: {
                     type: "integer",
-                    description: "The index number of the correct option",
+                    description:
+                      "The 1-based index number of the correct option",
                   },
                   explanation: {
                     type: "string",
-                    description: "The explanation of the correct answer",
+                    description:
+                      "The useful supplemental explanation of the correct answer",
                   },
                 },
               },
@@ -142,22 +171,26 @@ ${textContent}
     },
   ];
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-3.5-turbo-1106",
-    messages,
-    tools,
-    tool_choice: "auto",
-  });
-  const responseMessage = response.choices[0].message;
+  const quizSetId = newId("quizSet");
 
-  // Step 3: Generate quizzes
-  const toolCalls = responseMessage.tool_calls;
-  if (toolCalls === undefined || toolCalls.length === 0) {
-    return { success: false };
-  }
-
-  // JSON.parse may throw an error
   try {
+    // Generating OpenAI completion may throw an error
+    const response = await openai.chat.completions.create({
+      model: "gpt-4-1106-preview",
+      messages,
+      tools,
+      tool_choice: "auto",
+    });
+
+    const responseMessage = response.choices[0].message;
+
+    // Step 3: Generate quizzes
+    const toolCalls = responseMessage.tool_calls;
+    if (toolCalls === undefined || toolCalls.length === 0) {
+      return { success: false };
+    }
+
+    // JSON.parse may also throw an error
     const result = schema.safeParse(
       JSON.parse(toolCalls[0].function.arguments)
     );
@@ -166,13 +199,35 @@ ${textContent}
       return { success: false };
     }
 
-    // TODO: insert the quiz set into the database
-    return {
-      success: true,
-      data: result.data,
-    };
+    await supabase.from("quiz_set").insert({
+      id: quizSetId,
+      user_id: session.user.id,
+      title: pageTitle,
+      url,
+    });
+    for (const quiz of result.data.quizzes) {
+      const quizId = newId("quiz");
+      await supabase.from("quiz").insert({
+        id: quizId,
+        quizset_id: quizSetId,
+        question: quiz.question,
+        answer_index: quiz.answerIndex,
+        explanation: quiz.explanation,
+      });
+      for (const option of quiz.options) {
+        await supabase.from("quiz_option").insert({
+          id: newId("quizOption"),
+          quiz_id: quizId,
+          index: option.index,
+          text: option.text,
+        });
+      }
+    }
   } catch (e) {
     console.log(e);
     return { success: false };
   }
+
+  // Must be called outside of try-catch
+  redirect(`/qs/${quizSetId}`);
 }
