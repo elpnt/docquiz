@@ -12,7 +12,8 @@ export default function UrlForm() {
     const quizSetId = newId("quizSet");
     console.log({ url, quizSetId });
 
-    await fetch(`${getUrl()}/qs/api`, {
+    // TODO: awaiting fetch causes 504 Gateway Timeout in production
+    fetch(`${getUrl()}/qs/api`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url, quizSetId }),
