@@ -172,6 +172,7 @@ ${textContent}
   const readableStream = new ReadableStream({
     async start(controller) {
       try {
+        console.log("Start OpenAI request", quizSetId);
         // Generating OpenAI completion may throw an error
         const response = await openai.chat.completions.create({
           model: "gpt-4-1106-preview",
@@ -179,7 +180,7 @@ ${textContent}
           tools,
           tool_choice: "auto",
         });
-        console.log("OpenAI response", response);
+        console.log("Finished OpenAI request", quizSetId);
 
         const responseMessage = response.choices[0].message;
 
@@ -197,17 +198,21 @@ ${textContent}
           return new Response("Internal server error", { status: 500 });
         }
 
-        console.log("Finished parsing result");
+        console.log("Start inserting data to DB", quizSetId);
 
         await supabase.from("quiz_set").insert({
           id: quizSetId,
           title: pageTitle,
           url,
         });
-        // TODO: Use bulk insert
+
+        // Bulk insert
+        const quizInserts = [];
+        const quizOptionInserts = [];
         for (const quiz of result.data.quizzes) {
           const quizId = newId("quiz");
-          await supabase.from("quiz").insert({
+
+          quizInserts.push({
             id: quizId,
             quizset_id: quizSetId,
             question: quiz.question,
@@ -215,7 +220,7 @@ ${textContent}
             explanation: quiz.explanation,
           });
           for (const option of quiz.options) {
-            await supabase.from("quiz_option").insert({
+            quizOptionInserts.push({
               id: newId("quizOption"),
               quiz_id: quizId,
               index: option.index,
@@ -223,9 +228,12 @@ ${textContent}
             });
           }
         }
+        await supabase.from("quiz").insert(quizInserts);
+        await supabase.from("quiz_option").insert(quizOptionInserts);
+
+        console.log("Finished inserting data to DB", quizSetId);
       } catch (e) {
         console.log(e);
-        // return new Response("Internal server error", { status: 500 });
       }
 
       const text = "stream";
