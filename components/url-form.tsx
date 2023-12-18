@@ -1,7 +1,6 @@
 import { SubmitButton, UrlInput } from "./url-form-parts";
 import { newId } from "@/utils/id";
 import { getUrl } from "@/utils/url";
-import { redirect } from "next/navigation";
 
 export const runtime = "edge";
 
@@ -13,12 +12,11 @@ export default function UrlForm() {
     const quizSetId = newId("quizSet");
     console.log({ url, quizSetId });
 
-    const res = await fetch(`${getUrl()}/qs/api`, {
+    await fetch(`${getUrl()}/qs/api`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url, quizSetId }),
     });
-    if (res.ok) redirect(`/qs/${quizSetId}`);
   };
 
   return (

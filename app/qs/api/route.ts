@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 import { newId } from "@/utils/id";
 import { createClient } from "@/utils/supabase/server";
+import { revalidatePath } from "next/cache";
 
 export const runtime = "edge";
 
@@ -223,5 +224,6 @@ ${textContent}
     return new Response("Internal server error", { status: 500 });
   }
 
+  revalidatePath("/");
   return new Response("OK");
 }
