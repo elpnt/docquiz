@@ -167,63 +167,84 @@ ${textContent}
     },
   ];
 
-  try {
-    // Generating OpenAI completion may throw an error
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo-1106",
-      messages,
-      tools,
-      tool_choice: "auto",
-    });
-    console.log("OpenAI response", response);
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
 
-    const responseMessage = response.choices[0].message;
-
-    // Step 3: Generate quizzes
-    const toolCalls = responseMessage.tool_calls;
-    if (toolCalls === undefined || toolCalls.length === 0) {
-      return new Response("Internal server error", { status: 500 });
-    }
-
-    // JSON.parse may also throw an error
-    const result = schema.safeParse(
-      JSON.parse(toolCalls[0].function.arguments)
-    );
-    if (!result.success) {
-      return new Response("Internal server error", { status: 500 });
-    }
-
-    console.log("Finished parsing result");
-
-    await supabase.from("quiz_set").insert({
-      id: quizSetId,
-      title: pageTitle,
-      url,
-    });
-    // TODO: Use bulk insert
-    for (const quiz of result.data.quizzes) {
-      const quizId = newId("quiz");
-      await supabase.from("quiz").insert({
-        id: quizId,
-        quizset_id: quizSetId,
-        question: quiz.question,
-        answer_index: quiz.answerIndex,
-        explanation: quiz.explanation,
-      });
-      for (const option of quiz.options) {
-        await supabase.from("quiz_option").insert({
-          id: newId("quizOption"),
-          quiz_id: quizId,
-          index: option.index,
-          text: option.text,
+  const readableStream = new ReadableStream({
+    async start(controller) {
+      try {
+        // Generating OpenAI completion may throw an error
+        const response = await openai.chat.completions.create({
+          model: "gpt-3.5-turbo-1106",
+          messages,
+          tools,
+          tool_choice: "auto",
         });
-      }
-    }
-  } catch (e) {
-    console.log(e);
-    return new Response("Internal server error", { status: 500 });
-  }
+        console.log("OpenAI response", response);
 
-  revalidatePath("/");
-  return new Response("OK");
+        const responseMessage = response.choices[0].message;
+
+        // Step 3: Generate quizzes
+        const toolCalls = responseMessage.tool_calls;
+        if (toolCalls === undefined || toolCalls.length === 0) {
+          return new Response("Internal server error", { status: 500 });
+        }
+
+        // JSON.parse may also throw an error
+        const result = schema.safeParse(
+          JSON.parse(toolCalls[0].function.arguments)
+        );
+        if (!result.success) {
+          return new Response("Internal server error", { status: 500 });
+        }
+
+        console.log("Finished parsing result");
+
+        await supabase.from("quiz_set").insert({
+          id: quizSetId,
+          title: pageTitle,
+          url,
+        });
+        // TODO: Use bulk insert
+        for (const quiz of result.data.quizzes) {
+          const quizId = newId("quiz");
+          await supabase.from("quiz").insert({
+            id: quizId,
+            quizset_id: quizSetId,
+            question: quiz.question,
+            answer_index: quiz.answerIndex,
+            explanation: quiz.explanation,
+          });
+          for (const option of quiz.options) {
+            await supabase.from("quiz_option").insert({
+              id: newId("quizOption"),
+              quiz_id: quizId,
+              index: option.index,
+              text: option.text,
+            });
+          }
+        }
+      } catch (e) {
+        console.log(e);
+        // return new Response("Internal server error", { status: 500 });
+      }
+
+      const text = "stream";
+      controller.enqueue(encoder.encode(text));
+      controller.close();
+    },
+  });
+
+  const transformStream = new TransformStream({
+    transform(chunk, controller) {
+      const text = decoder.decode(chunk);
+      controller.enqueue(encoder.encode(text));
+    },
+  });
+
+  return new Response(readableStream.pipeThrough(transformStream), {
+    headers: {
+      "content-type": "text/plain",
+    },
+  });
 }
