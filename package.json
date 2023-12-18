@@ -10,6 +10,7 @@
     "@radix-ui/react-slot": "^1.0.2",
     "@supabase/ssr": "^0.0.10",
     "@supabase/supabase-js": "^2.39.0",
+    "ai": "^2.2.29",
     "autoprefixer": "10.4.16",
     "cheerio": "1.0.0-rc.12",
     "class-variance-authority": "^0.7.0",
