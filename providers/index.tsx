@@ -1,10 +1,12 @@
-import { Toaster } from "sonner";
+"use client";
+
+import { RequestProvider } from "./request-queue";
+import { ToastProvider } from "./toast";
 
 export const Providers = ({ children }: { children: React.ReactNode }) => {
   return (
-    <>
-      <Toaster duration={5000} />
-      {children}
-    </>
+    <ToastProvider>
+      <RequestProvider>{children}</RequestProvider>
+    </ToastProvider>
   );
 };

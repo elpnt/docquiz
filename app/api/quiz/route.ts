@@ -8,7 +8,6 @@ import {
 import { z } from "zod";
 import { newId } from "@/utils/id";
 import { createClient } from "@/utils/supabase/server";
-import { revalidatePath } from "next/cache";
 
 export const runtime = "edge";
 
@@ -18,7 +17,7 @@ const openai = new OpenAI({
 
 function isValidUrl(input: string) {
   try {
-    const url = new URL(input);
+    new URL(input);
     return true;
   } catch (_) {
     return false;

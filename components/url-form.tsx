@@ -1,30 +1,36 @@
-import { SubmitButton, UrlInput } from "./url-form-parts";
-import { newId } from "@/utils/id";
-import { getUrl } from "@/utils/url";
+"use client";
 
-export const runtime = "edge";
+import { useRequest } from "@/providers/request-queue";
+import { SubmissionStatus, SubmitButton, UrlInput } from "./url-form-parts";
+
+import { postUrl } from "@/utils/actions";
+import { useFormState } from "react-dom";
+import { useEffect } from "react";
 
 export default function UrlForm() {
-  const post = async (formData: FormData) => {
-    "use server";
+  const [state, formAction] = useFormState(postUrl, { url: "", quizSetId: "" });
+  const { setUrl, setQuizSetId } = useRequest();
 
-    const url = formData.get("url") as string;
-    const quizSetId = newId("quizSet");
-    console.log({ url, quizSetId });
-
-    // TODO: awaiting fetch causes 504 Gateway Timeout in production
-    fetch(`${getUrl()}/qs/api`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, quizSetId }),
-    });
-  };
+  useEffect(() => {
+    if (state.quizSetId.length > 0) {
+      setQuizSetId(state.quizSetId);
+    }
+  }, [state.quizSetId]);
 
   return (
     <div className="space-y-8">
-      <form action={post} className="flex w-full items-center gap-x-2">
-        <UrlInput />
-        <SubmitButton />
+      <form
+        action={async (formData) => {
+          formAction(formData);
+          setUrl(formData.get("url") as string);
+        }}
+        className="space-y-4"
+      >
+        <div className="flex w-full items-center gap-x-2">
+          <UrlInput />
+          <SubmitButton />
+        </div>
+        <SubmissionStatus />
       </form>
       <p className="text-center text-neutral-600">
         Quizzes you create are public and can be accessed by anyone in the

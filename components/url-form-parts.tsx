@@ -1,34 +1,92 @@
 "use client";
 
-import { useFormStatus } from "react-dom";
-
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
-import { Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
+import { createClient } from "@/utils/supabase/client";
+import { useEffect, useState } from "react";
+import { useRequest } from "@/providers/request-queue";
+import { Loader2Icon } from "lucide-react";
+import Link from "next/link";
 
 export function UrlInput() {
-  const { pending } = useFormStatus();
+  const { url } = useRequest();
+  const loading = url.length > 0;
 
   return (
     <Input
       type="text"
       name="url"
       placeholder="Enter document URL here..."
-      disabled={pending}
+      disabled={loading}
     />
   );
 }
 
 export function SubmitButton() {
+  const { url } = useRequest();
   const hanldeClick = () => {
     toast.info("Your request is enqueued.");
   };
 
+  const loading = url.length > 0;
+
   return (
-    <Button type="submit" onClick={hanldeClick}>
+    <Button type="submit" onClick={hanldeClick} disabled={loading}>
+      {loading ? <Loader2Icon className="mr-2 h-4 w-4 animate-spin" /> : null}
       Generate
     </Button>
   );
+}
+
+export function SubmissionStatus() {
+  const { setUrl, quizSetId } = useRequest();
+  const [title, setTitle] = useState("");
+
+  const supabase = createClient();
+  useEffect(() => {
+    const changes = supabase
+      .channel("new-quiz-set")
+      .on(
+        "postgres_changes",
+        {
+          schema: "public",
+          event: "INSERT",
+        },
+        (payload) => {
+          if (payload.new.id === quizSetId) {
+            setUrl("");
+            setTitle(payload.new.title);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      changes.unsubscribe();
+    };
+  }, [quizSetId]);
+
+  return title.length > 0 ? (
+    <div className="rounded-md bg-blue-50 p-4">
+      <div className="flex">
+        <div className="ml-2 flex-1 md:flex md:justify-between">
+          <p className="text-sm text-blue-700">
+            The quiz you requested is ready:{" "}
+            <span className="font-medium">{title}</span>
+          </p>
+          <p className="mt-3 text-sm md:ml-6 md:mt-0">
+            <Link
+              href={`/qs/${quizSetId}`}
+              className="whitespace-nowrap font-medium text-blue-700 hover:text-blue-600"
+            >
+              Solve it!
+              <span aria-hidden="true"> &rarr;</span>
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  ) : null;
 }
