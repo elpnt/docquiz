@@ -6,6 +6,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
 import { Loader2Icon } from "lucide-react";
+import { toast } from "sonner";
 
 export function UrlInput() {
   const { pending } = useFormStatus();
@@ -21,18 +22,13 @@ export function UrlInput() {
 }
 
 export function SubmitButton() {
-  const { pending } = useFormStatus();
+  const hanldeClick = () => {
+    toast.info("Your request is enqueued.");
+  };
 
   return (
-    <Button type="submit" disabled={pending}>
-      {pending ? (
-        <>
-          <Loader2Icon className="h-5 w-5 mr-1.5 animate-spin" />
-          Generating
-        </>
-      ) : (
-        "Generate"
-      )}
+    <Button type="submit" onClick={hanldeClick}>
+      Generate
     </Button>
   );
 }
