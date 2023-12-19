@@ -23,7 +23,7 @@ async function postUrl(
 }
 
 export const UrlForm = () => {
-  const { trigger, isMutating, data } = useSWRMutation(`/api/quiz`, postUrl);
+  const { trigger, isMutating, data } = useSWRMutation("/api/quiz", postUrl);
 
   const submit = (formData: FormData) => {
     const documentUrl = formData.get("documentUrl") as string;

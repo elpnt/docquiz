@@ -10,7 +10,6 @@ import { newId } from "@/utils/id";
 import { createClient } from "@/utils/supabase/server";
 
 export const runtime = "edge";
-export const cache = "force-dynamic";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
