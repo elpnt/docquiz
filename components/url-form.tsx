@@ -1,14 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
 import useSWRMutation from "swr/mutation";
 
-import { SubmissionStatus, SubmitButton } from "./url-form-parts";
+import { SubmissionStatus } from "./url-form-parts";
 
 import { Input } from "./ui/input";
+import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { Loader2Icon } from "lucide-react";
-import { toast } from "sonner";
 
 async function postUrl(
   apiUrl: string,
@@ -20,34 +19,29 @@ async function postUrl(
       "Content-Type": "application/json",
     },
     body: JSON.stringify(arg),
-  });
+  }).then((res) => res.json() as any as { title: string; quizSetId: string }); // Same as route response
 }
 
 export const UrlForm = () => {
-  const [documentUrl, setDocumentUrl] = useState("");
-  const { trigger, isMutating } = useSWRMutation("/api/quiz", postUrl);
+  const { trigger, isMutating, data } = useSWRMutation(`/api/quiz`, postUrl);
 
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      await trigger({ documentUrl });
-      toast.info("Your request has been enqueued", {
-        description: "It may take 30 seconds to generate the quiz.",
-      });
-    },
-    []
-  );
+  const submit = (formData: FormData) => {
+    const documentUrl = formData.get("documentUrl") as string;
+    toast.info("Your request has been enqueued", {
+      description: "It may take 30 seconds to generate the quiz.",
+    });
+    trigger({ documentUrl });
+  };
 
   return (
     <div className="space-y-8">
-      <form className="space-y-4" onSubmit={handleSubmit}>
+      <form className="space-y-4" action={submit}>
         <div className="flex w-full items-center gap-x-2">
           <Input
             type="text"
+            name="documentUrl"
             placeholder="https://react.dev/reference/react/useEffect"
             disabled={isMutating}
-            value={documentUrl}
-            onChange={(e) => setDocumentUrl(e.target.value)}
           />
           <Button type="submit" disabled={isMutating}>
             {isMutating ? (
@@ -56,7 +50,7 @@ export const UrlForm = () => {
             Generate
           </Button>
         </div>
-        <SubmissionStatus />
+        <SubmissionStatus title={data?.title} quizSetId={data?.quizSetId} />
       </form>
       <p className="text-center text-neutral-600">
         Quizzes you create are public and can be accessed by anyone in the

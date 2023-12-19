@@ -10,6 +10,7 @@ import { newId } from "@/utils/id";
 import { createClient } from "@/utils/supabase/server";
 
 export const runtime = "edge";
+export const cache = "force-dynamic";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -57,7 +58,10 @@ export async function POST(req: Request) {
   console.log("received", documentUrl);
 
   if (documentUrl === undefined || !isValidUrl(documentUrl)) {
-    return new Response("Invalid URL", { status: 400 });
+    return new Response("Invalid URL", {
+      status: 400,
+      statusText: "Invalid URL",
+    });
   }
   if (!isSecuredUrl(documentUrl)) {
     return new Response("Unsecured URL", { status: 400 });
@@ -67,7 +71,6 @@ export async function POST(req: Request) {
   const supabase = createClient(cookieStore);
 
   const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
 
   const quizSetId = newId("quizSet");
 
@@ -82,7 +85,7 @@ export async function POST(req: Request) {
   const readableStream = new ReadableStream({
     async pull(controller) {
       try {
-        controller.enqueue(encoder.encode("Reading document\n"));
+        // controller.enqueue(encoder.encode("Reading document\n"));
         // Step 1: Generate text from the given URL
         const res = await fetch(documentUrl);
         const html = await res.text();
@@ -173,7 +176,7 @@ export async function POST(req: Request) {
 
         console.log("Start OpenAI request", quizSetId);
 
-        controller.enqueue(encoder.encode("Generating quiz\n"));
+        // controller.enqueue(encoder.encode("Generating quiz\n"));
         const start = Date.now();
         // Generating OpenAI completion may throw an error
         const response = await openai.chat.completions.create({
@@ -186,11 +189,6 @@ export async function POST(req: Request) {
         console.log(
           `Finished OpenAI request: took ${(end - start) / 1000} seconds`
         );
-        // controller.enqueue(
-        //   encoder.encode(
-        //     `Finished OpenAI request: took ${(end - start) / 1000} seconds\n`
-        //   )
-        // );
 
         const responseMessage = response.choices[0].message;
 
@@ -210,7 +208,7 @@ export async function POST(req: Request) {
           throw new Error("Internal server error");
         }
 
-        controller.enqueue(encoder.encode("Saving result\n"));
+        // controller.enqueue(encoder.encode("Saving result\n"));
 
         console.log("Start inserting data to DB", quizSetId);
 
@@ -247,7 +245,9 @@ export async function POST(req: Request) {
 
         console.log("Finished inserting data to DB", quizSetId);
 
-        controller.enqueue(encoder.encode("Done"));
+        controller.enqueue(
+          encoder.encode(JSON.stringify({ title: pageTitle, quizSetId }))
+        );
       } catch (e) {
         console.log(e);
       }
@@ -256,16 +256,9 @@ export async function POST(req: Request) {
     },
   });
 
-  const transformStream = new TransformStream({
-    transform(chunk, controller) {
-      const text = decoder.decode(chunk);
-      controller.enqueue(encoder.encode(text));
-    },
-  });
-
   return new Response(readableStream, {
     headers: {
-      "content-type": "text/plain; charset=utf-8",
+      "content-type": "application/json",
     },
   });
 }
