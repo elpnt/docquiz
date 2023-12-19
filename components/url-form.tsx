@@ -9,23 +9,20 @@ import { useEffect } from "react";
 
 export default function UrlForm() {
   const [state, formAction] = useFormState(postUrl, { url: "", quizSetId: "" });
-  const { setUrl, setQuizSetId } = useRequest();
+  const { setQuizSetId, setPending } = useRequest();
 
   useEffect(() => {
     if (state.quizSetId.length > 0) {
       setQuizSetId(state.quizSetId);
+      setPending(true);
     }
   }, [state.quizSetId]);
 
+  console.log(state);
+
   return (
     <div className="space-y-8">
-      <form
-        action={async (formData) => {
-          formAction(formData);
-          setUrl(formData.get("url") as string);
-        }}
-        className="space-y-4"
-      >
+      <form action={formAction} className="space-y-4">
         <div className="flex w-full items-center gap-x-2">
           <UrlInput />
           <SubmitButton />

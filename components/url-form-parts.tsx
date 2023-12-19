@@ -11,40 +11,39 @@ import { Loader2Icon } from "lucide-react";
 import Link from "next/link";
 
 export function UrlInput() {
-  const { url } = useRequest();
-  const loading = url.length > 0;
+  const { pending } = useRequest();
 
   return (
     <Input
       type="text"
       name="url"
       placeholder="Enter document URL here..."
-      disabled={loading}
+      disabled={pending}
     />
   );
 }
 
 export function SubmitButton() {
-  const { url } = useRequest();
+  const { pending } = useRequest();
   const hanldeClick = () => {
-    toast.info("Your request is enqueued.");
+    toast.info("Your request is enqueued.", {
+      description: "It will take 20 ~ 30 seconds to generate the quiz.",
+    });
   };
 
-  const loading = url.length > 0;
-
   return (
-    <Button type="submit" onClick={hanldeClick} disabled={loading}>
-      {loading ? <Loader2Icon className="mr-2 h-4 w-4 animate-spin" /> : null}
+    <Button type="submit" onClick={hanldeClick} disabled={pending}>
+      {pending ? <Loader2Icon className="mr-2 h-4 w-4 animate-spin" /> : null}
       Generate
     </Button>
   );
 }
 
 export function SubmissionStatus() {
-  const { setUrl, quizSetId } = useRequest();
-  const [title, setTitle] = useState("");
-
+  const { quizSetId, setPending } = useRequest();
+  const [title, setTitle] = useState<string | null>(null);
   const supabase = createClient();
+
   useEffect(() => {
     const changes = supabase
       .channel("new-quiz-set")
@@ -56,8 +55,8 @@ export function SubmissionStatus() {
         },
         (payload) => {
           if (payload.new.id === quizSetId) {
-            setUrl("");
             setTitle(payload.new.title);
+            setPending(false);
           }
         }
       )
@@ -68,7 +67,7 @@ export function SubmissionStatus() {
     };
   }, [quizSetId]);
 
-  return title.length > 0 ? (
+  return title !== null ? (
     <div className="rounded-md bg-blue-50 p-4">
       <div className="flex">
         <div className="ml-2 flex-1 md:flex md:justify-between">

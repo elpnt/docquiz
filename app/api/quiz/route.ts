@@ -69,6 +69,9 @@ export async function POST(req: Request) {
   const cookieStore = cookies();
   const supabase = createClient(cookieStore);
 
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+
   // 💸 Limit the number of quizzes to 500 to avoid bankrupting
   const { count } = await supabase
     .from("quiz_set")
@@ -77,110 +80,111 @@ export async function POST(req: Request) {
     return new Response("Too many quizzes", { status: 400 });
   }
 
-  // Step 1: Generate text from the given URL
-  const res = await fetch(url);
-  const html = await res.text();
-  const $ = cheerio.load(html);
+  const readableStream = new ReadableStream({
+    async start(controller) {
+      try {
+        // Step 1: Generate text from the given URL
+        const res = await fetch(url);
+        const html = await res.text();
+        const $ = cheerio.load(html);
 
-  let textContent = "";
-  $("article, section, p, h1, h2, h3").each((_, el) => {
-    textContent += $(el).text();
-    textContent += "\n";
-  });
+        let textContent = "";
+        $("article, section, p, h1, h2, h3").each((_, el) => {
+          textContent += $(el).text();
+          textContent += "\n";
+        });
+        const pageTitle = $("head title").text();
+        console.log("Loaded html", url);
 
-  console.log("Loaded html", url);
-
-  const pageTitle = $("head title").text();
-
-  // Step 2: Send the conversation and available functions to the model
-  const messages: ChatCompletionMessageParam[] = [
-    {
-      role: "system",
-      content:
-        "You are a helpful assistant to generate quizzes in JSON format. Summarize the text presented by the user and make five 4-option quizzes based on it. Please provide an additional useful explanation of the correct answer for each quiz.",
-    },
-    {
-      role: "user",
-      content: `Please make five 4-option quizzes from the following text:
+        // Step 2: Send the conversation and available functions to the model
+        const messages: ChatCompletionMessageParam[] = [
+          {
+            role: "system",
+            content:
+              "You are a helpful assistant to generate quizzes in JSON format. Summarize the text presented by the user and make five 4-option quizzes based on it. Please provide an additional useful explanation of the correct answer for each quiz.",
+          },
+          {
+            role: "user",
+            content: `Please make five 4-option quizzes from the following text:
 """
 ${textContent}
 """
 `,
-    },
-  ];
-  const tools: ChatCompletionTool[] = [
-    {
-      type: "function",
-      function: {
-        name: "generate_five_quizzes",
-        description: "Generate five 4-option quizzes from the given text",
-        parameters: {
-          type: "object",
-          properties: {
-            quizzes: {
-              type: "array",
-              minItems: 5,
-              maxItems: 5,
-              items: {
+          },
+        ];
+        const tools: ChatCompletionTool[] = [
+          {
+            type: "function",
+            function: {
+              name: "generate_five_quizzes",
+              description: "Generate five 4-option quizzes from the given text",
+              parameters: {
                 type: "object",
                 properties: {
-                  question: {
-                    type: "string",
-                    description: "The question text of the quiz",
-                  },
-                  options: {
+                  quizzes: {
                     type: "array",
-                    minItems: 4,
-                    maxItems: 4,
+                    minItems: 5,
+                    maxItems: 5,
                     items: {
                       type: "object",
                       properties: {
-                        index: {
-                          type: "integer",
-                          description: "The 1-based index number of the option",
-                        },
-                        text: {
+                        question: {
                           type: "string",
-                          description: "The text of the option",
+                          description: "The question text of the quiz",
+                        },
+                        options: {
+                          type: "array",
+                          minItems: 4,
+                          maxItems: 4,
+                          items: {
+                            type: "object",
+                            properties: {
+                              index: {
+                                type: "integer",
+                                description:
+                                  "The 1-based index number of the option",
+                              },
+                              text: {
+                                type: "string",
+                                description: "The text of the option",
+                              },
+                            },
+                          },
+                        },
+                        answerIndex: {
+                          type: "integer",
+                          description:
+                            "The 1-based index number of the correct option",
+                        },
+                        explanation: {
+                          type: "string",
+                          description:
+                            "The useful supplemental explanation of the correct answer",
                         },
                       },
                     },
                   },
-                  answerIndex: {
-                    type: "integer",
-                    description:
-                      "The 1-based index number of the correct option",
-                  },
-                  explanation: {
-                    type: "string",
-                    description:
-                      "The useful supplemental explanation of the correct answer",
-                  },
                 },
+                required: ["quizzes"],
               },
             },
           },
-          required: ["quizzes"],
-        },
-      },
-    },
-  ];
+        ];
 
-  const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
-
-  const readableStream = new ReadableStream({
-    async start(controller) {
-      try {
         console.log("Start OpenAI request", quizSetId);
+
+        const start = Date.now();
         // Generating OpenAI completion may throw an error
         const response = await openai.chat.completions.create({
-          model: "gpt-4-1106-preview",
+          model: "gpt-3.5-turbo-1106",
           messages,
           tools,
           tool_choice: "auto",
         });
-        console.log("Finished OpenAI request", quizSetId);
+        const end = Date.now();
+        console.log(
+          `Finished OpenAI request: took ${(end - start) / 1000} seconds`
+        );
 
         const responseMessage = response.choices[0].message;
 
@@ -236,8 +240,6 @@ ${textContent}
         console.log(e);
       }
 
-      const text = "stream";
-      controller.enqueue(encoder.encode(text));
       controller.close();
     },
   });
@@ -251,7 +253,8 @@ ${textContent}
 
   return new Response(readableStream.pipeThrough(transformStream), {
     headers: {
-      "content-type": "text/plain",
+      "content-type": "text/event-stream",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

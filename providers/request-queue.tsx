@@ -1,17 +1,17 @@
 import { createContext, useContext, useState } from "react";
 
 type RequestContextType = {
-  url: string;
-  setUrl: (url: string) => void;
-  quizSetId: string;
-  setQuizSetId: (quizSetId: string) => void;
+  quizSetId: string | null;
+  setQuizSetId: (quizSetId: string | null) => void;
+  pending: boolean;
+  setPending: (pending: boolean) => void;
 };
 
 const RequestContext = createContext<RequestContextType>({
-  url: "",
-  setUrl: () => {},
-  quizSetId: "",
+  quizSetId: null,
   setQuizSetId: () => {},
+  pending: false,
+  setPending: () => {},
 });
 
 export const RequestProvider = ({
@@ -19,11 +19,13 @@ export const RequestProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
-  const [url, setUrl] = useState("");
-  const [quizSetId, setQuizSetId] = useState("");
+  const [quizSetId, setQuizSetId] = useState<string | null>(null);
+  const [pending, setPending] = useState<boolean>(false);
 
   return (
-    <RequestContext.Provider value={{ url, setUrl, quizSetId, setQuizSetId }}>
+    <RequestContext.Provider
+      value={{ quizSetId, setQuizSetId, pending, setPending }}
+    >
       {children}
     </RequestContext.Provider>
   );
