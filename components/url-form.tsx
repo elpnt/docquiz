@@ -18,8 +18,6 @@ export default function UrlForm() {
     }
   }, [state.quizSetId]);
 
-  console.log(state);
-
   return (
     <div className="space-y-8">
       <form action={formAction} className="space-y-4">
