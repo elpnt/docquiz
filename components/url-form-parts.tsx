@@ -17,7 +17,7 @@ export function UrlInput() {
     <Input
       type="text"
       name="url"
-      placeholder="Enter document URL here..."
+      placeholder="https://react.dev/reference/react/useEffect"
       disabled={pending}
     />
   );

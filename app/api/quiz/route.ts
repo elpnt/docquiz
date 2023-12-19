@@ -96,6 +96,9 @@ export async function POST(req: Request) {
         const pageTitle = $("head title").text();
         console.log("Loaded html", url);
 
+        // TODO: tokenize and truncate the text to 4000 tokens
+        // https://beta.openai.com/docs/api-reference/create-completion
+
         // Step 2: Send the conversation and available functions to the model
         const messages: ChatCompletionMessageParam[] = [
           {
