@@ -27,7 +27,7 @@ export function SubmitButton() {
   const { pending } = useRequest();
   const hanldeClick = () => {
     toast.info("Your request is enqueued.", {
-      description: "It will take 20 ~ 30 seconds to generate the quiz.",
+      description: "It will take 30 seconds to generate the quiz.",
     });
   };
 
