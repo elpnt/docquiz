@@ -256,8 +256,7 @@ ${textContent}
 
   return new Response(readableStream.pipeThrough(transformStream), {
     headers: {
-      "content-type": "text/event-stream",
-      "X-Content-Type-Options": "nosniff",
+      "content-type": "text/plain",
     },
   });
 }

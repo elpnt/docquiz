@@ -10,8 +10,7 @@ export async function postUrl(
   const url = formData.get("url") as string;
   const quizSetId = newId("quizSet");
 
-  // TODO: awaiting fetch causes 504 Gateway Timeout in production
-  fetch(`${getUrl()}/api/quiz`, {
+  await fetch(`${getUrl()}/api/quiz`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url, quizSetId }),
