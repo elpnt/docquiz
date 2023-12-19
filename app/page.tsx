@@ -1,10 +1,12 @@
 import Header from "@/components/header";
-import UrlForm from "@/components/url-form";
+import { UrlForm } from "@/components/url-form";
 import { createClient } from "@/utils/supabase/server";
 import { ChevronRightIcon } from "lucide-react";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { format } from "date-fns";
+
+// export const runtime = "edge";
 
 export default async function Index() {
   return (

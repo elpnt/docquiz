@@ -53,17 +53,14 @@ type Data = z.infer<typeof schema>;
 export type Quiz = Data["quizzes"][number];
 
 export async function POST(req: Request) {
-  const { url, quizSetId } = await req.json();
-  console.log("received", url, quizSetId);
+  const { documentUrl } = await req.json();
+  console.log("received", documentUrl);
 
-  if (url === undefined || !isValidUrl(url)) {
+  if (documentUrl === undefined || !isValidUrl(documentUrl)) {
     return new Response("Invalid URL", { status: 400 });
   }
-  if (!isSecuredUrl(url)) {
+  if (!isSecuredUrl(documentUrl)) {
     return new Response("Unsecured URL", { status: 400 });
-  }
-  if (quizSetId === undefined) {
-    return new Response("Invalid quizSetId", { status: 400 });
   }
 
   const cookieStore = cookies();
@@ -71,6 +68,8 @@ export async function POST(req: Request) {
 
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
+
+  const quizSetId = newId("quizSet");
 
   // 💸 Limit the number of quizzes to 500 to avoid bankrupting
   const { count } = await supabase
@@ -81,10 +80,11 @@ export async function POST(req: Request) {
   }
 
   const readableStream = new ReadableStream({
-    async start(controller) {
+    async pull(controller) {
       try {
+        controller.enqueue(encoder.encode("Reading document\n"));
         // Step 1: Generate text from the given URL
-        const res = await fetch(url);
+        const res = await fetch(documentUrl);
         const html = await res.text();
         const $ = cheerio.load(html);
 
@@ -94,32 +94,29 @@ export async function POST(req: Request) {
           textContent += "\n";
         });
         const pageTitle = $("head title").text();
-        console.log("Loaded html", url);
-
-        // TODO: tokenize and truncate the text to 4000 tokens
-        // https://beta.openai.com/docs/api-reference/create-completion
+        console.log("Loaded html", documentUrl);
 
         // Step 2: Send the conversation and available functions to the model
         const messages: ChatCompletionMessageParam[] = [
           {
             role: "system",
             content:
-              "You are a helpful assistant to generate quizzes in JSON format. Summarize the text presented by the user and make five 4-option quizzes based on it. Please provide an additional useful explanation of the correct answer for each quiz.",
+              "You are a helpful assistant to generate quizzes in JSON format. Summarize the text presented by the user and make five 4-option quizzes based on it. Please provide an additional useful explanation of the correct answer for the quiz.",
           },
           {
             role: "user",
             content: `Please make five 4-option quizzes from the following text:
-"""
-${textContent}
-"""
-`,
+        """
+        ${textContent}
+        """
+        `,
           },
         ];
         const tools: ChatCompletionTool[] = [
           {
             type: "function",
             function: {
-              name: "generate_five_quizzes",
+              name: "generate_a_quizz",
               description: "Generate five 4-option quizzes from the given text",
               parameters: {
                 type: "object",
@@ -176,6 +173,7 @@ ${textContent}
 
         console.log("Start OpenAI request", quizSetId);
 
+        controller.enqueue(encoder.encode("Generating quiz\n"));
         const start = Date.now();
         // Generating OpenAI completion may throw an error
         const response = await openai.chat.completions.create({
@@ -188,13 +186,19 @@ ${textContent}
         console.log(
           `Finished OpenAI request: took ${(end - start) / 1000} seconds`
         );
+        // controller.enqueue(
+        //   encoder.encode(
+        //     `Finished OpenAI request: took ${(end - start) / 1000} seconds\n`
+        //   )
+        // );
 
         const responseMessage = response.choices[0].message;
 
         // Step 3: Generate quizzes
         const toolCalls = responseMessage.tool_calls;
         if (toolCalls === undefined || toolCalls.length === 0) {
-          return new Response("Internal server error", { status: 500 });
+          // return new Response("Internal server error", { status: 500 });
+          throw new Error("Internal server error");
         }
 
         // JSON.parse may also throw an error
@@ -202,15 +206,18 @@ ${textContent}
           JSON.parse(toolCalls[0].function.arguments)
         );
         if (!result.success) {
-          return new Response("Internal server error", { status: 500 });
+          // return new Response("Internal server error", { status: 500 });
+          throw new Error("Internal server error");
         }
+
+        controller.enqueue(encoder.encode("Saving result\n"));
 
         console.log("Start inserting data to DB", quizSetId);
 
         await supabase.from("quiz_set").insert({
           id: quizSetId,
           title: pageTitle,
-          url,
+          url: documentUrl,
         });
 
         // Bulk insert
@@ -239,6 +246,8 @@ ${textContent}
         await supabase.from("quiz_option").insert(quizOptionInserts);
 
         console.log("Finished inserting data to DB", quizSetId);
+
+        controller.enqueue(encoder.encode("Done"));
       } catch (e) {
         console.log(e);
       }
@@ -254,9 +263,9 @@ ${textContent}
     },
   });
 
-  return new Response(readableStream.pipeThrough(transformStream), {
+  return new Response(readableStream, {
     headers: {
-      "content-type": "text/plain",
+      "content-type": "text/plain; charset=utf-8",
     },
   });
 }
