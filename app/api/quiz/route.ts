@@ -138,6 +138,8 @@ export async function POST(req: Request) {
                           type: "array",
                           minItems: 4,
                           maxItems: 4,
+                          description:
+                            "Four options for the quiz. The index number of the first choice must always start with 1.",
                           items: {
                             type: "object",
                             properties: {
@@ -174,12 +176,10 @@ export async function POST(req: Request) {
         ];
 
         console.log("Start OpenAI request", quizSetId);
-
-        // controller.enqueue(encoder.encode("Generating quiz\n"));
         const start = Date.now();
         // Generating OpenAI completion may throw an error
         const response = await openai.chat.completions.create({
-          model: "gpt-3.5-turbo-1106",
+          model: "gpt-4-1106-preview",
           messages,
           tools,
           tool_choice: "auto",
@@ -189,9 +189,8 @@ export async function POST(req: Request) {
           `Finished OpenAI request: took ${(end - start) / 1000} seconds`
         );
 
-        const responseMessage = response.choices[0].message;
-
         // Step 3: Generate quizzes
+        const responseMessage = response.choices[0].message;
         const toolCalls = responseMessage.tool_calls;
         if (toolCalls === undefined || toolCalls.length === 0) {
           // return new Response("Internal server error", { status: 500 });

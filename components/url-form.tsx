@@ -7,7 +7,7 @@ import { SubmissionStatus } from "./url-form-parts";
 import { Input } from "./ui/input";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
-import { Loader2Icon } from "lucide-react";
+import { Coffee, Loader2Icon } from "lucide-react";
 
 async function postUrl(
   apiUrl: string,
@@ -28,7 +28,8 @@ export const UrlForm = () => {
   const submit = (formData: FormData) => {
     const documentUrl = formData.get("documentUrl") as string;
     toast.info("Your request has been enqueued", {
-      description: "It may take 30 seconds to generate the quiz.",
+      description: "It may take a few minutes to generate the quiz.",
+      icon: <Coffee className="h-5 w-5" />,
     });
     trigger({ documentUrl });
   };

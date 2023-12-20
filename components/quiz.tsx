@@ -108,7 +108,7 @@ const QuizExplanation = ({
   );
 };
 
-export const Quiz = ({
+const Quiz = ({
   quizNumber,
   question,
   options,
@@ -148,7 +148,7 @@ export const Quiz = ({
       <RadioGroup.Root
         name={`${question}`}
         id={id}
-        defaultValue="1"
+        defaultValue={options[0].index.toString()}
         className="space-y-2"
       >
         {options.map((option) => (
