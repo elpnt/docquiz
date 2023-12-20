@@ -39,8 +39,7 @@ const RecentQuizSets = async () => {
   const { data: quizSets, error } = await supabase
     .from("quiz_set")
     .select("id, title, url, created_at")
-    .order("created_at", { ascending: false })
-    .limit(10);
+    .order("created_at", { ascending: false });
 
   if (error) return null;
 
